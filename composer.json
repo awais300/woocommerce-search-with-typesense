@@ -1,0 +1,22 @@
+{
+    "name": "awp/woocommerce-search-with-typesense",
+    "license": "GPL-3.0",
+    "require":
+    {
+        "php-http/curl-client": "^2.3",
+        "typesense/typesense-php": "^4.9",
+        "symfony/http-client": "^5.4"
+    },
+    "autoload":
+    {
+        "psr-4":
+        {
+            "AWP\\TypesenseSearch\\": "src/"
+        }
+    },
+    "config": {
+        "allow-plugins": {
+            "php-http/discovery": true
+        }
+    }
+}

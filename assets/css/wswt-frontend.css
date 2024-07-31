@@ -1,0 +1,138 @@
+:root {
+    --primary-color: #4a90e2;
+    --text-color: #333;
+    --border-color: #ddd;
+    --hover-bg-color: #f5f5f5;
+}
+
+/* Live Search Container */
+#live-search-container {
+    position: relative;
+    max-width: 500px;
+    margin: 20px auto;
+}
+
+/* Search Input */
+#live-search-input {
+    width: 100%;
+    padding: 12px 20px;
+    font-size: 16px;
+    border: 2px solid #ddd;
+    border-radius: 25px;
+    outline: none;
+    transition: border-color 0.3s ease;
+}
+
+#live-search-input:focus {
+    border-color: #4a90e2;
+}
+
+/* Results Container */
+#live-search-results {
+    /*position: absolute;*/
+    top: 100%;
+    left: 0;
+    right: 0;
+    background-color: #fff;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    z-index: 1000;
+    max-height: 400px;
+    overflow-y: auto;
+    display: none;
+}
+
+#live-search-results:not(:empty) {
+    display: block;
+}
+
+/* Individual Result Item */
+.live-search-result {
+    padding: 10px;
+    border-bottom: 1px solid #eee;
+    transition: background-color 0.2s ease;
+}
+
+.live-search-result:last-child {
+    border-bottom: none;
+}
+
+.live-search-result:hover {
+    background-color: #f5f5f5;
+}
+
+.live-search-result a {
+    display: flex;
+    align-items: center;
+    text-decoration: none;
+    color: #333;
+}
+
+/* Product Image */
+.live-search-result img {
+    width: 50px;
+    height: 50px;
+    object-fit: cover;
+    margin-right: 15px;
+    border-radius: 4px;
+}
+
+/* Product Details */
+.live-search-result .product-details {
+    flex-grow: 1;
+}
+
+.live-search-result .product-title {
+    font-weight: bold;
+    margin-bottom: 5px;
+    color: #333;
+}
+
+.live-search-result .product-price {
+    color: #4a90e2;
+    font-weight: bold;
+}
+
+/* No Results Message */
+#live-search-results p {
+    padding: 10px;
+    text-align: center;
+    color: #666;
+}
+
+/* Scrollbar Styling */
+#live-search-results::-webkit-scrollbar {
+    width: 8px;
+}
+
+#live-search-results::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+#live-search-results::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+}
+
+#live-search-results::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+
+/* Responsive Design */
+@media (max-width: 600px) {
+    #live-search-container {
+        max-width: 100%;
+        padding: 0 15px;
+    }
+
+    .live-search-result a {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .live-search-result img {
+        margin-right: 0;
+        margin-bottom: 10px;
+    }
+}
