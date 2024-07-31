@@ -1,0 +1,1 @@
+# woocommerce-search-with-typesense
