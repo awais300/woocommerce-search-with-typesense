@@ -45,6 +45,10 @@ class TypesenseCLI
             OptionsManager::reset_indexing_status($itsync->get_collection_name());
         }
 
+        $count = (InitTypesenseSync::get_instance())->get_non_index_products_count();
+        WP_CLI::success('Approx ~ ' . $count  . ' records will be indexed');
+        WP_CLI::confirm( 'Are you sure you want to proceed?' );
+        
         WP_CLI::success('Typesense indexing started.');
         (InitTypesenseSync::get_instance())->init();
         WP_CLI::success('Typesense indexing completed.');
