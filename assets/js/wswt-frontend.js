@@ -1,44 +1,320 @@
 jQuery(document).ready(function($) {
-    var searchInput = $('#woocommerce-product-search-field-0');
-    var resultsContainer = $('#live-search-results');
-    var typingTimer;
-    var doneTypingInterval = 300;
+    function showLoadingOverlay() {
+        $('#loading-overlay').show();
+    }
 
-    searchInput.on('input', function() {
-        clearTimeout(typingTimer);
-        var query = $(this).val();
-        
-        if (query.length >= 3) {
-            typingTimer = setTimeout(function() {
-                performSearch(query);
-            }, doneTypingInterval);
+    function hideLoadingOverlay() {
+        $('#loading-overlay').hide();
+    }
+
+    $('.woocommerce-ordering').on('submit', function(e) {
+        e.preventDefault();
+    });
+
+    // Function to get URL parameters
+    function getUrlParameter(name) {
+        name = name.replace(/[\[]/, '\\[').replace(/[\]]/, '\\]');
+        var regex = new RegExp('[\\?&]' + name + '=([^&#]*)');
+        var results = regex.exec(location.search);
+        return results === null ? '' : decodeURIComponent(results[1].replace(/\+/g, ' '));
+    }
+
+    // Function to perform search
+    function performSearch(requestedPage) {
+        console.log("performSearch called");
+        showLoadingOverlay(); // Show overlay before AJAX request
+
+        var attributes = {};
+        var category = '';
+        var auctionsOnly = $('#auctionsonly').hasClass('switch-on');
+        var orderBy = $('.nice-select.orderby .current').data('value');
+        var paged = requestedPage || parseInt($('.woocommerce-pagination .current').data('page')) || 1;
+
+
+
+        console.log(orderBy);
+
+        // Get current URL parameters
+        var urlParams = new URLSearchParams(window.location.search);
+
+        // Remove rel_search parameter
+        urlParams.delete('rel_search');
+
+        // Collect selected attributes
+        $('.product-attribute-filter').each(function() {
+            var name = $(this).find('input:first, select:first').attr('name').replace('[]', '');
+            var isGradeFilter = name === 'pa_grade';
+
+            console.log("Processing attribute:", name, "isGradeFilter:", isGradeFilter);
+
+            if (isGradeFilter) {
+                var selectedValue = $(this).find('select').val();
+
+                console.log("Grade filter value:", selectedValue);
+                if (selectedValue) {
+                    urlParams.set(name, selectedValue);
+                    attributes[name] = selectedValue;
+                } else {
+                    urlParams.delete(name);
+                    delete attributes[name];
+                }
+            } else {
+                var values = [];
+                $(this).find('input:checked').each(function() {
+                    values.push($(this).val());
+                    $(this).parent().addClass('checked');
+                });
+
+                $(this).find('input:not(:checked)').each(function() {
+                    $(this).parent().removeClass('checked');
+                });
+
+                console.log("Multi select values:", values);
+                if (values.length > 0) {
+                    urlParams.set(name, values.join(','));
+                    attributes[name] = values;
+                } else {
+                    urlParams.delete(name);
+                    delete attributes[name];
+                }
+            }
+        });
+
+        console.log("Final URL params:", urlParams.toString());
+
+        // Construct the new URL
+        var newUrl = window.location.pathname + '?' + urlParams.toString();
+        console.log("New URL:", newUrl);
+
+        // Update the URL
+        history.pushState(null, null, newUrl);
+
+        // Get the selected category
+        var checkedCategory = $('.product-category-filter input:checked');
+        if (checkedCategory.length > 0) {
+            category = checkedCategory.val();
+            checkedCategory.parent().addClass('checked');
+        }
+
+        var uncheckedCategory = $('.product-category-filter input:not(:checked)');
+        if (uncheckedCategory.length > 0) {
+            uncheckedCategory.parent().removeClass('checked');
+        }
+
+        // Update URL parameters
+        if (category) {
+            urlParams.set('product_cat', category);
         } else {
-            resultsContainer.empty();
+            urlParams.delete('product_cat');
+        }
+
+        if (auctionsOnly) {
+            urlParams.set('auctions_only', '1');
+        } else {
+            urlParams.delete('auctions_only');
+        }
+
+
+        if (orderBy) {
+            urlParams.set('orderby', orderBy);
+        } else {
+            urlParams.delete('orderby');
+        }
+
+        urlParams.set('cur_page', paged);
+
+        // Construct the new URL
+        var newUrl = window.location.pathname + '?' + urlParams.toString();
+        history.pushState(null, null, newUrl);
+
+        // Perform AJAX request
+        $.ajax({
+            url: ajax_object.ajax_url,
+            method: 'POST',
+            data: {
+                action: 'typesense_search',
+                category: category,
+                attributes: attributes,
+                auctions_only: auctionsOnly,
+                orderby: orderBy,
+                cur_page: paged,
+                search_query: urlParams.get('s') // Include the search query from the URL
+            },
+            success: function(response) {
+                if (response.success) {
+                    var $container = $('#mbf_products');
+                    $container.empty();
+                    $container.html(response.data.html);
+                    $('.woocommerce-ordering select').niceSelect();
+
+                    // Maintain orderby selection
+                    var currentOrderby = urlParams.get('orderby');
+                    if (currentOrderby) {
+                        $('.nice-select.orderby .option[data-value="' + currentOrderby + '"]').addClass('selected').siblings().removeClass('selected');
+                        selectedOrderby();
+                    }
+
+                    // Update URL without reloading the page
+                    urlParams.set('cur_page', paged);
+                    if (orderBy) {
+                        urlParams.set('orderby', orderBy);
+                    }
+
+                    var newUrl = window.location.pathname + '?' + urlParams.toString();
+                    history.pushState(null, null, newUrl);
+
+
+                    // Update URL without reloading the page
+                    //var urlParams = new URLSearchParams(window.location.search);
+                    //urlParams.set('cur_page', paged);
+                    //var newUrl = window.location.pathname + '?' + urlParams.toString();
+                    //history.pushState(null, null, newUrl);
+
+                    // Rebind pagination event listeners
+                    //bindPaginationListeners();
+
+                } else {
+                    console.error('Search failed:', response.data);
+                }
+                hideLoadingOverlay(); // Hide overlay on success
+            },
+            error: function(xhr, status, error) {
+                console.error('Search error:', error);
+                hideLoadingOverlay(); // Hide overlay on error
+            }
+        });
+    }
+
+    // Event listener for category checkboxes
+    $('.product-category-filter input').on('change', function() {
+        // Uncheck other category checkboxes
+        $('.product-category-filter input').not(this).prop('checked', false);
+        performSearch(1);
+    });
+
+    // Event listeners for other filters
+    $('.product-attribute-filter input').on('change', function() {
+        performSearch(1);
+    });
+
+    // Event listener for grade filter select
+    $('.product-attribute-filter select').on('change', function() {
+        performSearch(1);
+    });
+
+    $('#auctionsonly').on('click', function(e) {
+        e.preventDefault();
+        $(this).toggleClass('switch-on switch-off');
+        performSearch(1);
+    });
+
+    // Event listener for custom dropdown change
+
+    $(document).on('click', '.nice-select.orderby .option', function(e) {
+        e.preventDefault();
+        $(this).addClass('selected').siblings().removeClass('selected');
+        selectedOrderby();
+        performSearch(1);
+    });
+
+    $(document).on('click', '.woocommerce-pagination .page-numbers', function(e) {
+        e.preventDefault();
+        var requestedPage;
+        if ($(this).hasClass('next')) {
+            requestedPage = parseInt($('.woocommerce-pagination .current').data('page')) + 1;
+        } else if ($(this).hasClass('prev')) {
+            requestedPage = parseInt($('.woocommerce-pagination .current').data('page')) - 1;
+        } else {
+            requestedPage = parseInt($(this).data('page'));
+        }
+        if (requestedPage && !isNaN(requestedPage)) {
+            performSearch(requestedPage);
         }
     });
 
-    function performSearch(query) {
-        $.ajax({
-            url: wc_live_search_params.ajax_url,
-            type: 'POST',
-            dataType: 'html',
-            data: {
-                action: 'wc_live_search',
-                security: wc_live_search_params.nonce,
-                query: query
-            },
-            success: function(response) {
-                console.log('AJAX Response:', response);
-                if (response) {
-                    resultsContainer.html(response);
-                } else {
-                    resultsContainer.html('<p>No results found</p>');
-                }
-            },
-            error: function(jqXHR, textStatus, errorThrown) {
-                console.error('AJAX Error:', textStatus, errorThrown);
-                resultsContainer.html('<p>An error occurred. Please try again.</p>');
+    function selectedOrderby() {
+        var selectedOption = $('.nice-select.orderby .option.selected');
+        $('.nice-select.orderby .current').text(selectedOption.text()).data('value', selectedOption.data('value'));
+    }
+
+    function bindPaginationListeners() {
+        $('.woocommerce-pagination .page-numbers').on('click', function(e) {
+            e.preventDefault();
+            var requestedPage;
+            if ($(this).hasClass('next')) {
+                requestedPage = parseInt($('.woocommerce-pagination .current').data('page')) + 1;
+            } else if ($(this).hasClass('prev')) {
+                requestedPage = parseInt($('.woocommerce-pagination .current').data('page')) - 1;
+            } else {
+                requestedPage = parseInt($(this).data('page'));
+            }
+            if (requestedPage && !isNaN(requestedPage)) {
+                performSearch(requestedPage);
             }
         });
+    }
+
+    //performSearch(1);
+
+    // Load saved filters from URL
+    function loadSavedFilters() {
+        var savedQuery = getUrlParameter('s');
+        var savedCategory = getUrlParameter('category');
+        var savedAuctionsOnly = getUrlParameter('auctions_only');
+        var savedOrderBy = getUrlParameter('orderby');
+        var savedPaged = getUrlParameter('cur_page');
+
+        if (savedQuery) {
+            $('.search-keyword').val(savedQuery);
+        }
+        if (savedCategory) {
+            $('.nice-select.form-control1 .option[data-value="' + savedCategory + '"]').addClass('selected').siblings().removeClass('selected');
+            $('.nice-select.form-control1 .current').text($('.nice-select.form-control1 .option.selected').text());
+        }
+        if (savedAuctionsOnly === '1') {
+            $('#auctionsonly').addClass('switch-on').removeClass('switch-off');
+        }
+        if (savedOrderBy) {
+            $('.nice-select.orderby .option[data-value="' + savedOrderBy + '"]').addClass('selected').siblings().removeClass('selected');
+            $('.nice-select.orderby .current').text($('.nice-select.orderby .option.selected').text()).data('value', savedOrderBy);
+        }
+
+        if (savedPaged) {
+            $('.woocommerce-pagination .page-numbers[data-page="' + savedPaged + '"]').addClass('current').siblings().removeClass('current');
+        }
+
+        // Load saved attribute filters
+        $('.product-attribute-filter').each(function() {
+            var name = $(this).find('input:first, select:first').attr('name').replace('[]', '');
+            var savedValues = getUrlParameter(name);
+            if (savedValues) {
+                if ($(this).find('select').length) {
+                    // If it's a select element (e.g., grade filter)
+                    $(this).find('select').val(savedValues);
+                } else {
+                    // If it's a checkbox or radio input
+                    var values = savedValues.split(',');
+                    $(this).find('input').each(function() {
+                        if (values.includes($(this).val())) {
+                            $(this).prop('checked', true);
+                            $(this).parent().addClass('checked');
+                        }
+                    });
+                }
+            }
+        });
+
+        // Load saved category filter
+        var savedCategory = getUrlParameter('product_cat');
+        if (savedCategory) {
+            $('.product-category-filter input[value="' + savedCategory + '"]').prop('checked', true).parent().addClass('checked');
+        }
+
+        performSearch();
+    }
+
+    // Check if rel_search is present in URL before calling loadSavedFilters
+    if (!getUrlParameter('rel_search') && window.location.search !== '') {
+        //loadSavedFilters();
     }
 });
