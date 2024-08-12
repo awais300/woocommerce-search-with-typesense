@@ -23,14 +23,14 @@ class WooCommerceToTypesense extends Singleton
      *
      * @var \Typesense\Client
      */
-    private $typesense;
+    public $typesense;
 
     /**
      * Name of the Typesense collection.
      *
      * @var string
      */
-    private $collection_name;
+    public $collection_name;
 
     /**
      * Store options.
@@ -101,8 +101,8 @@ class WooCommerceToTypesense extends Singleton
                 array('name' => 'description', 'type' => 'string', 'optional' => true),
                 array('name' => 'short_description', 'type' => 'string', 'optional' => true),
                 array('name' => 'price', 'type' => 'float', 'optional' => true, 'sort' => true),
-                array('name' => 'categories', 'type' => 'string[]', 'facet' => true),
-                array('name' => 'attribute_terms', 'type' => 'string[]', 'facet' => true),
+                array('name' => 'categories', 'type' => 'string[]', 'facet' => true, 'optional' => true),
+                array('name' => 'attribute_terms', 'type' => 'string[]', 'facet' => true, 'optional' => true),
                 array('name' => 'auction_dates_from', 'type' => 'int64', 'optional' => true, 'sort' => true, 'facet' => true),
                 array('name' => 'auction_dates_to', 'type' => 'int64', 'optional' => true, 'sort' => true, 'facet' => true),
                 array('name' => 'auction_start_price', 'type' => 'float', 'optional' => true, 'sort' => true),
@@ -177,12 +177,127 @@ class WooCommerceToTypesense extends Singleton
     }
 
     /**
-     * Fetch WooCommerce products in batches using a generator.
+     * Fetch WooCommerce products in batches using a generator with direct MySQL queries.
      *
      * @param int $batch_size Number of products to fetch per batch.
      * @return \Generator
      */
     public function fetch_products_generator($batch_size = 10)
+    {
+        global $wpdb;
+
+        $offset = 0;
+        $post_type = 'product';
+        $post_status = 'publish';
+        $key = $wpdb->esc_like($this->collection_name . PostMetaManager::COLLECTION_KEY);
+
+        while (true) {
+            $query = $wpdb->prepare(
+                "SELECT p.ID, p.post_title
+            FROM {$wpdb->posts} p
+            LEFT JOIN {$wpdb->postmeta} pm ON p.ID = pm.post_id AND pm.meta_key = %s
+            WHERE p.post_type = %s
+            AND p.post_status = %s
+            AND pm.meta_value IS NULL
+            ORDER BY p.ID ASC
+            LIMIT %d OFFSET %d",
+                $key,
+                $post_type,
+                $post_status,
+                $batch_size,
+                $offset
+            );
+
+            $results = $wpdb->get_results($query);
+
+            $this->log_info(sprintf("Fetching batch with %d products", count($results)));
+
+            if (empty($results)) {
+                OptionsManager::indexing_completed();
+                $this->log_info(
+                    sprintf(
+                        __("Yielding completed at: %s", 'woocommerce-search-with-typesense'),
+                        date('l, F j Y - H:i:s', time())
+                    )
+                );
+                break;
+            }
+
+            foreach ($results as $result) {
+                $product = wc_get_product($result->ID);
+                if ($product) {
+                    $this->log_info(
+                        sprintf(
+                            __("Yielding Product: %d", 'woocommerce-search-with-typesense'),
+                            $product->get_id()
+                        )
+                    );
+                    yield $product;
+                }
+            }
+
+            $offset += $batch_size;
+        }
+    }
+    /**
+     * Fetch WooCommerce products in batches using a generator.
+     *
+     * @param int $batch_size Number of products to fetch per batch.
+     * @return \Generator
+     */
+    public function fetch_products_generator_old($batch_size = 10)
+    {
+        $page = 1;
+        while (true) {
+            $args = array(
+                'limit' => $batch_size,
+                'status' => 'publish',
+                'page' => $page,  // Add this line to paginate through all products
+            );
+
+            $key = $this->collection_name . PostMetaManager::COLLECTION_KEY;
+            $args['meta_query'] = array(
+                array(
+                    'key' => $key,
+                    'compare' => 'NOT EXISTS'
+                )
+            );
+
+            $products = wc_get_products($args);
+            $this->log_info(sprintf("Fetching page %d with %d products", $page, count($products)));
+
+            if (empty($products)) {
+                OptionsManager::indexing_completed();
+                $this->log_info(
+                    sprintf(
+                        __("Yielding completed at: %s", 'woocommerce-search-with-typesense'),
+                        date('l, F j Y - H:i:s', time())
+                    )
+                );
+                break;
+            }
+
+            foreach ($products as $product) {
+                $this->log_info(
+                    sprintf(
+                        __("Yielding Product: %d", 'woocommerce-search-with-typesense'),
+                        $product->get_id()
+                    )
+                );
+                yield $product;
+            }
+
+            $page++;
+        }
+    }
+
+    /**
+     * Fetch WooCommerce products in batches using a generator.
+     *
+     * @param int $batch_size Number of products to fetch per batch.
+     * @return \Generator
+     */
+    public function fetch_products_generator2($batch_size = 10)
     {
         $page = 1;
 
@@ -244,15 +359,15 @@ class WooCommerceToTypesense extends Singleton
     public function prepare_product($product)
     {
         // Get product categories
-        $categories = wp_get_post_terms($product->get_id(), 'product_cat', array('fields' => 'names'));
+        $categories = wp_get_post_terms($product->get_id(), 'product_cat', array('fields' => 'slugs'));
+
 
         // Get product attribute terms
         $attribute_terms = array();
         $product_attributes = $product->get_attributes();
         foreach ($product_attributes as $attribute) {
             if ($attribute->is_taxonomy()) {
-                $terms = wp_get_post_terms($product->get_id(), $attribute->get_name(), array('fields' => 'names'));
-
+                $terms = wp_get_post_terms($product->get_id(), $attribute->get_name(), array('fields' => 'slugs'));
 
                 $attribute_terms = array_merge($attribute_terms, $terms);
             }
