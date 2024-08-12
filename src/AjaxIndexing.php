@@ -45,12 +45,16 @@ class AjaxIndexing extends Singleton
      */
     public function __construct()
     {
+
         $this->initialize_log_dir();
 
         $this->typesense_init = InitTypesenseSync::get_instance();
         $this->typesense_init->set_collection_name('comics');
-
         $this->collection_name = $this->typesense_init->get_collection_name();
+
+        // delete collection
+        /*$this->typesense_init->delete_collection($this->collection_name);
+        exit;*/
 
         $this->wc_to_typesense = WooCommerceToTypesense::get_instance();
         $this->wc_to_typesense->connect_typesense($this->typesense_init->get_typesense_config(), $this->collection_name);
