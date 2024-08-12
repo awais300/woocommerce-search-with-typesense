@@ -33,10 +33,13 @@ class InitTypesenseSync extends Singleton
 
     private $collection_name;
 
+    private $typesense_client;
+
     private $force_reindex = false;
 
 
     public const BATCH_SIZE = 10;
+
 
     /**
      * init to initialize Typesense configuration and WooCommerceToTypesense instance.
@@ -62,10 +65,19 @@ class InitTypesenseSync extends Singleton
 
     public function get_collection_name()
     {
-        if (empty($this->collection_name)) {
-            throw new Exception('Collection name is not set.');
+        $name = null;
+
+        if (in_array(wp_get_environment_type(), array('staging', 'local'))) {
+            $name =  'comics';
         }
-        return $this->collection_name;
+
+        if ('production' === wp_get_environment_type()) {
+            $name = 'comics_live';
+        }
+
+        $this->collection_name = $name;
+
+        return $name;
     }
 
 
@@ -76,6 +88,34 @@ class InitTypesenseSync extends Singleton
         }
 
         $this->collection_name = $collection_name;
+    }
+
+    public function delete_collection($collection_name)
+    {
+        $this->initialize_log_dir();
+        try {
+            $this->test_connection($this->get_typesense_config());
+            $client = $this->typesense_client;
+            $client->collections[$collection_name]->delete();
+            $message = __("Collection deleted successfully", 'woocommerce-search-with-typesense');
+
+            $this->log_error($message);
+            $this->log_cli($message);
+        } catch (\Typesense\Exceptions\ObjectNotFound $e) {
+            $message = sprintf(
+                __("Collection not found %s", 'woocommerce-search-with-typesense'),
+                $e->getMessage()
+            );
+            $this->log_error($message);
+            $this->log_cli($message);
+        } catch (\Typesense\Exceptions\TypesenseClientError $e) {
+            $message = sprintf(
+                __("Error deleting collection %s", 'woocommerce-search-with-typesense'),
+                $e->getMessage()
+            );
+            $this->log_error($message);
+            $this->log_cli($message);
+        }
     }
 
 
@@ -145,6 +185,30 @@ class InitTypesenseSync extends Singleton
                 'connection_timeout_seconds' => 2
             ]);
 
+           /* $this->typesense_client = $client;
+
+            $this->delete_collection($this->get_collection_name());
+            exit;*/
+
+
+            /*$collection_name = $this->get_collection_name(); // Replace with the correct collection name
+            $document_id = '520359'; // The ID of the document you want to retrieve
+
+            if (!empty($collection_name) && !empty($document_id)) {
+                try {
+                    $document = $client->collections[$collection_name]->documents[$document_id]->retrieve();
+                    print_r($document);
+                } catch (\Typesense\Exceptions\ObjectNotFound $e) {
+                    echo "Document not found: " . $e->getMessage();
+                } catch (\Exception $e) {
+                    echo "An error occurred: " . $e->getMessage();
+                }
+            } else {
+                echo "Collection name or Document ID is missing!";
+            }*/
+
+            //exit;
+
             /*$response = $client->collections['comics']->delete();
             dd($response);
             exit;*/
@@ -164,5 +228,60 @@ class InitTypesenseSync extends Singleton
         } catch (Exception $e) {
             return $e;
         }
+    }
+
+    public function perform_search_with_scoped_api_key($limit_hits, $additional_params = [])
+    {
+        try {
+            $connection = $this->test_connection($this->get_typesense_config());
+            if ($connection !== true) {
+                throw new Exception("Failed to connect to Typesense");
+            }
+
+            $api_key = $this->get_typesense_config()['api_key'];
+
+            // Define the search parameters
+            $search_parameters = array_merge([
+                'limit_hits' => $limit_hits,
+
+            ], $additional_params);
+
+            // Generate the scoped API key
+            $scoped_api_key = $this->typesense_client->keys->generateScopedSearchKey($api_key, $search_parameters);
+
+            return $scoped_api_key;
+        } catch (Exception $e) {
+            // Log the error or handle it as appropriate for your application
+            error_log("Error generating scoped API key: " . $e->getMessage());
+            return null;
+        }
+    }
+
+    public function get_non_index_products_count($collection_name = '')
+    {
+        if (empty($collection_name)) {
+            $collection_name = $this->get_collection_name();
+        }
+
+        \WP_CLI::success('Typesense collection name: ' . $collection_name  . '. Records will be indexed againt this collction name');
+
+        global $wpdb;
+        $meta_key = $collection_name . PostMetaManager::COLLECTION_KEY;
+
+        $query = $wpdb->prepare(
+            "SELECT COUNT(DISTINCT p.ID)
+        FROM {$wpdb->posts} p
+        LEFT JOIN {$wpdb->postmeta} pm ON p.ID = pm.post_id AND pm.meta_key = %s
+        WHERE p.post_type = 'product'
+        AND p.post_status = 'publish'
+        AND pm.meta_id IS NULL",
+            $meta_key
+        );
+
+        /*echo $query;
+        exit;*/
+
+        $count = $wpdb->get_var($query);
+        return (int) $count;
     }
 }
