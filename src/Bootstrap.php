@@ -78,7 +78,7 @@ class Bootstrap
 		add_action('init', array($this, 'load_textdomain'));
 		add_action('init', array($this, 'init'), 1);
 
-		add_action('wp_enqueue_scripts', array($this, 'enqueue_styles'));
+		add_action('wp_enqueue_scripts', array($this, 'enqueue_styles'), 999999);
 		add_action('wp_enqueue_scripts', array($this, 'enqueue_scripts'));
 
 		add_action('admin_enqueue_scripts', array($this, 'admin_enqueue_styles'));
@@ -101,6 +101,8 @@ class Bootstrap
 		new TypesenseSettings();
 		new TypesenseCLI();
 		new AjaxIndexing();
+		new Filters();
+		new Search();
 		//new WCTypesenseLiveSearch();
 	}
 
@@ -109,7 +111,7 @@ class Bootstrap
 	 */
 	public function enqueue_styles()
 	{
-		wp_enqueue_style('wswt-frontend', WSWT_CUST_PLUGIN_DIR_URL . '/assets/css/wswt-frontend.css', array(), null, 'all');
+		wp_enqueue_style('wswt-frontend', WSWT_CUST_PLUGIN_DIR_URL . '/assets/css/wswt-frontend.css', array(), filemtime(WSWT_CUST_PLUGIN_DIR_PATH . '/assets/css/wswt-frontend.css'), 'all');
 	}
 
 	/**
@@ -118,7 +120,7 @@ class Bootstrap
 	public function enqueue_scripts()
 	{
 		wp_enqueue_script('wswt-frontend', WSWT_CUST_PLUGIN_DIR_URL . '/assets/js/wswt-frontend.js', array('jquery'), '1.0', true);
-        wp_localize_script('wswt-frontend', 'wc_live_search_params', array(
+        wp_localize_script('wswt-frontend', 'ajax_object', array(
             'ajax_url' => admin_url('admin-ajax.php'),
             'nonce' => wp_create_nonce('wc_live_search_nonce'),
         ));
