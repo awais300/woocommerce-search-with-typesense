@@ -64,6 +64,7 @@ trait LoggerTrait
         }
 
         $file = $this->log_dir . date('Y-m-d') . '.log';
+
         $time = date('Y-m-d H:i:s');
         $formatted_message = "[$time] [$type] $message" . PHP_EOL;
         file_put_contents($file, $formatted_message, FILE_APPEND);
