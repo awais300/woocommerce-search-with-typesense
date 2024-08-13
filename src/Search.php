@@ -153,9 +153,15 @@ class Search
                 echo str_replace('columns-4', 'columns-6', woocommerce_product_loop_start(false));
 
                 $total_products = $results['found'];
+
+                $search_title = $query;
+                if (!empty($search_title)) {
+                    $search_title = ' | Showing results for: ' . $search_title;
+                }
 ?>
+
                 <li class="total-product-count" id="mbf_products_count">
-                    <p>Total listings: <?php echo number_format($total_products); ?></p>
+                    <p>Total listings: <?php echo number_format($total_products) . $search_title ?></p>
                 </li>
 <?php
                 global $post, $product;
