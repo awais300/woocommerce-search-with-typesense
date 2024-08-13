@@ -40,6 +40,9 @@ jQuery(document).ready(function($) {
         // Remove rel_search parameter
         urlParams.delete('rel_search');
 
+        // Set rel_method parameter
+        urlParams.set('rel_method', 'ajax');
+
         // Collect selected attributes
         $('.product-attribute-filter').each(function() {
             var name = $(this).find('input:first, select:first').attr('name').replace('[]', '');
@@ -163,16 +166,6 @@ jQuery(document).ready(function($) {
                     var newUrl = window.location.pathname + '?' + urlParams.toString();
                     history.pushState(null, null, newUrl);
 
-
-                    // Update URL without reloading the page
-                    //var urlParams = new URLSearchParams(window.location.search);
-                    //urlParams.set('cur_page', paged);
-                    //var newUrl = window.location.pathname + '?' + urlParams.toString();
-                    //history.pushState(null, null, newUrl);
-
-                    // Rebind pagination event listeners
-                    //bindPaginationListeners();
-
                 } else {
                     console.error('Search failed:', response.data);
                 }
@@ -217,7 +210,7 @@ jQuery(document).ready(function($) {
         performSearch(1);
     });
 
-    $(document).on('click', '.woocommerce-pagination .page-numbers', function(e) {
+    $(document).on('click', '.woocommerce-pagination.ajax .page-numbers', function(e) {
         e.preventDefault();
         var requestedPage;
         if ($(this).hasClass('next')) {
@@ -259,7 +252,7 @@ jQuery(document).ready(function($) {
     // Load saved filters from URL
     function loadSavedFilters() {
         var savedQuery = getUrlParameter('s');
-        var savedCategory = getUrlParameter('category');
+        var savedCategory = getUrlParameter('product_cat');
         var savedAuctionsOnly = getUrlParameter('auctions_only');
         var savedOrderBy = getUrlParameter('orderby');
         var savedPaged = getUrlParameter('cur_page');
@@ -269,7 +262,7 @@ jQuery(document).ready(function($) {
         }
         if (savedCategory) {
             $('.nice-select.form-control1 .option[data-value="' + savedCategory + '"]').addClass('selected').siblings().removeClass('selected');
-            $('.nice-select.form-control1 .current').text($('.nice-select.form-control1 .option.selected').text());
+            //$('.nice-select.form-control1 .current').text($('.nice-select.form-control1 .option.selected').text());
         }
         if (savedAuctionsOnly === '1') {
             $('#auctionsonly').addClass('switch-on').removeClass('switch-off');
@@ -279,9 +272,9 @@ jQuery(document).ready(function($) {
             $('.nice-select.orderby .current').text($('.nice-select.orderby .option.selected').text()).data('value', savedOrderBy);
         }
 
-        if (savedPaged) {
+        /*if (savedPaged) {
             $('.woocommerce-pagination .page-numbers[data-page="' + savedPaged + '"]').addClass('current').siblings().removeClass('current');
-        }
+        }*/
 
         // Load saved attribute filters
         $('.product-attribute-filter').each(function() {
@@ -310,11 +303,19 @@ jQuery(document).ready(function($) {
             $('.product-category-filter input[value="' + savedCategory + '"]').prop('checked', true).parent().addClass('checked');
         }
 
-        performSearch();
+        /*if(savedQuery || savedCategory || savedAuctionsOnly == 1 || savedOrderBy) {
+            performSearch(1);    
+        }*/
+
+        if(savedPaged) {
+            performSearch(savedPaged);
+        } else{
+            performSearch(1);
+        }
     }
 
     // Check if rel_search is present in URL before calling loadSavedFilters
-    if (!getUrlParameter('rel_search') && window.location.search !== '') {
-        //loadSavedFilters();
+    if (getUrlParameter('rel_method')) {
+        loadSavedFilters();
     }
 });
