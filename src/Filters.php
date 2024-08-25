@@ -89,6 +89,7 @@ class Filters extends Singleton
 
         return ob_get_clean();
     }
+
     public function product_attribute_filter_shortcode($atts)
     {
         $atts = shortcode_atts(
@@ -98,6 +99,7 @@ class Filters extends Singleton
                 'title' => '',
                 'class' => 'filter-term',
                 'type' => 'checkbox',
+                'include' => '', // New attribute for specific term IDs
             ),
             $atts,
             'product_attribute_filter'
@@ -108,8 +110,26 @@ class Filters extends Singleton
         $title = sanitize_text_field($atts['title']);
         $class = sanitize_html_class($atts['class']);
         $type = in_array($atts['type'], ['checkbox', 'radio', 'select']) ? $atts['type'] : 'checkbox';
+        $include = array_filter(array_map('absint', explode(',', $atts['include'])));
 
-        $terms = get_terms(['taxonomy' => $attribute, 'hide_empty' => $hide_empty]);
+
+        // Clear cache.
+        if (isset($_GET['clear_tax_cache'])) {
+            $this->clear_taxonomy_cache($attribute);
+        }
+
+        $args = [
+            'taxonomy' => $attribute,
+            'hide_empty' => $hide_empty,
+            'update_term_meta_cache' => false,
+            'cache_domain' => microtime(),
+        ];
+
+        if (!empty($include)) {
+            $args['include'] = $include;
+        }
+
+        $terms = get_terms($args);
 
         if (is_wp_error($terms)) {
             return ''; // Return empty string if there's an error
@@ -144,5 +164,36 @@ class Filters extends Singleton
         }
 
         return ob_get_clean();
+    }
+
+    public function clear_taxonomy_cache($taxonomy)
+    {
+        wp_cache_delete('get_terms', $taxonomy);
+        delete_option("{$taxonomy}_children");
+        delete_transient('wc_term_counts');
+
+        global $wpdb;
+
+        $query = "
+            UPDATE {$wpdb->term_taxonomy} tt
+            SET count = (
+                SELECT COUNT(DISTINCT tr.object_id)
+                FROM {$wpdb->term_relationships} tr
+                INNER JOIN {$wpdb->posts} p ON p.ID = tr.object_id
+                WHERE tr.term_taxonomy_id = tt.term_taxonomy_id
+                AND p.post_type = 'product'
+                AND p.post_status = 'publish'
+            )
+            WHERE tt.taxonomy LIKE 'pa_%'
+              OR tt.taxonomy IN ('product_cat', 'product_tag')
+            ";
+
+        $result = $wpdb->query($query);
+
+        if ($result !== false) {
+            $this->log_info('Taxonomy cache cleared and count is set');
+        } else {
+            $this->log_error("Error updating product term counts: " . $wpdb->last_error);
+        }
     }
 }

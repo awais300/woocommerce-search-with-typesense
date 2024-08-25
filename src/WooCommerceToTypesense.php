@@ -108,7 +108,9 @@ class WooCommerceToTypesense extends Singleton
                 array('name' => 'auction_start_price', 'type' => 'float', 'optional' => true, 'sort' => true),
                 array('name' => 'auction_has_started', 'type' => 'bool', 'optional' => true, 'facet' => true),
                 array('name' => 'product_type', 'type' => 'string', 'facet' => true),
-                array('name' => 'product_visibility', 'type' => 'string', 'facet' => true),
+                array('name' => 'product_visibility', 'type' => 'string', 'facet' => true, 'optional' => true),
+                array('name' => 'stock_status', 'type' => 'string', 'facet' => true, 'optional' => true),
+                array('name' => 'author', 'type' => 'string', 'facet' => true, 'optional' => true),
                 array('name' => 'product_image_url', 'type' => 'string', 'optional' => true, 'index' => false),
                 array('name' => 'product_image_html', 'type' => 'string', 'optional' => true, 'index' => false),
                 array('name' => 'publish_date', 'type' => 'int64', 'sort' => true, 'facet' => true),
@@ -358,6 +360,8 @@ class WooCommerceToTypesense extends Singleton
      */
     public function prepare_product($product)
     {
+        date_default_timezone_set('UTC');
+        
         // Get product categories
         $categories = wp_get_post_terms($product->get_id(), 'product_cat', array('fields' => 'slugs'));
 
@@ -383,6 +387,8 @@ class WooCommerceToTypesense extends Singleton
             'attribute_terms' => array_unique($attribute_terms),
             'product_type' => $product->get_type(),
             'product_visibility' => $product->get_catalog_visibility(),
+            'stock_status' => $product->get_stock_status(),
+            'author' => (string) $product->get_post_data()->post_author,
             'publish_date' => strtotime($product->get_date_created()),
         );
 
@@ -562,7 +568,7 @@ class WooCommerceToTypesense extends Singleton
 
         if ($new_status === 'trash') {
             $this->on_product_trash($post->ID);
-        } elseif ($old_status === 'trash' && $new_status === 'publish') {
+        } elseif ($new_status === 'publish') {
             $product = wc_get_product($post->ID);
             if ($product) {
                 $prepared_product = $this->prepare_product($product);

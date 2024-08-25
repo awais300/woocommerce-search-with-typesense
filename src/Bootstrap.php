@@ -79,7 +79,7 @@ class Bootstrap
 		add_action('init', array($this, 'init'), 1);
 
 		add_action('wp_enqueue_scripts', array($this, 'enqueue_styles'), 999999);
-		add_action('wp_enqueue_scripts', array($this, 'enqueue_scripts'));
+		add_action('wp_enqueue_scripts', array($this, 'enqueue_scripts'), 999999);
 
 		add_action('admin_enqueue_scripts', array($this, 'admin_enqueue_styles'));
 		add_action('admin_enqueue_scripts', array($this, 'admin_enqueue_scripts'));
@@ -119,11 +119,24 @@ class Bootstrap
 	 */
 	public function enqueue_scripts()
 	{
-		wp_enqueue_script('wswt-frontend', WSWT_CUST_PLUGIN_DIR_URL . '/assets/js/wswt-frontend.js', array('jquery'), '1.0', true);
-        wp_localize_script('wswt-frontend', 'ajax_object', array(
-            'ajax_url' => admin_url('admin-ajax.php'),
-            'nonce' => wp_create_nonce('wc_live_search_nonce'),
-        ));
+		$current_url = $_SERVER['REQUEST_URI'];
+		$seller_id = '';
+
+		$store_url   = wcfm_get_option('wcfm_store_url', 'store');
+		$store_name  = get_query_var($store_url);
+
+		if (strpos($current_url, "/{$store_url}/{$store_name}") !== false) {
+			$seller_id  = get_user_by('slug', $store_name)->ID;
+		}
+
+		if (strpos($current_url, '/shop') !== false || strpos($current_url, "/{$store_url}/{$store_name}") !== false) {
+			wp_enqueue_script('wswt-frontend', WSWT_CUST_PLUGIN_DIR_URL . '/assets/js/wswt-frontend.js', array('jquery'), '1.0', true);
+			wp_localize_script('wswt-frontend', 'ajax_object', array(
+				'ajax_url' => admin_url('admin-ajax.php'),
+				'nonce' => wp_create_nonce('search_nonce'),
+				'seller_id' => $seller_id,
+			));
+		}
 	}
 
 	/**
@@ -141,11 +154,11 @@ class Bootstrap
 	{
 		wp_enqueue_script('wswt-backend', WSWT_CUST_PLUGIN_DIR_URL . '/assets/js/wswt-backend.js', array('jquery'));
 		wp_localize_script('wswt-backend', 'TS_LOCAL', array(
-            'ajax_url' => admin_url('admin-ajax.php'),
-            'test_typesense_connection_nonce' => wp_create_nonce('test_typesense_connection_nonce'),
-            'index_products_nonce' => wp_create_nonce('index_products_nonce'),
-            'force_reindex_products_nonce' => wp_create_nonce('force_reindex_products_nonce'),
-        ));
+			'ajax_url' => admin_url('admin-ajax.php'),
+			'test_typesense_connection_nonce' => wp_create_nonce('test_typesense_connection_nonce'),
+			'index_products_nonce' => wp_create_nonce('index_products_nonce'),
+			'force_reindex_products_nonce' => wp_create_nonce('force_reindex_products_nonce'),
+		));
 	}
 
 	/**

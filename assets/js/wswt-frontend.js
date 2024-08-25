@@ -83,6 +83,12 @@ jQuery(document).ready(function($) {
             }
         });
 
+        // Check if orderby should be removed
+        if (!auctionsOnly && (orderBy === 'auction_started' || orderBy === 'auction_end')) {
+            urlParams.delete('orderby');
+            orderBy = null;
+        }
+
         console.log("Final URL params:", urlParams.toString());
 
         // Construct the new URL
@@ -102,6 +108,15 @@ jQuery(document).ready(function($) {
         var uncheckedCategory = $('.product-category-filter input:not(:checked)');
         if (uncheckedCategory.length > 0) {
             uncheckedCategory.parent().removeClass('checked');
+        }
+
+        if (ajax_object.seller_id) {
+            category = $('li.comic-seller-cat a.active').data('cat-slug');
+
+            $('.categories_list ul li:first-child a:contains("Show All")').parent().remove();
+            var currentUrl = window.location.origin + window.location.pathname;
+            // Insert the "Show All" link with the current URL
+            $('.categories_list ul').prepend('<li class="parent_cat"><a class="" href="' + currentUrl + '">Show All</a></li>');
         }
 
         // Update URL parameters
@@ -141,6 +156,7 @@ jQuery(document).ready(function($) {
                 auctions_only: auctionsOnly,
                 orderby: orderBy,
                 cur_page: paged,
+                seller_id: ajax_object.seller_id,
                 search_query: urlParams.get('s') // Include the search query from the URL
             },
             success: function(response) {
@@ -162,6 +178,8 @@ jQuery(document).ready(function($) {
                     if (orderBy) {
                         urlParams.set('orderby', orderBy);
                     }
+
+                    toggleAuctionOptions();
 
                     var newUrl = window.location.pathname + '?' + urlParams.toString();
                     history.pushState(null, null, newUrl);
@@ -225,11 +243,20 @@ jQuery(document).ready(function($) {
         }
     });
 
+    $('.categories_list').on('click', 'li.comic-seller-cat a', function(e) {
+        e.preventDefault();
+
+        $('.categories_list a').removeClass('active');
+        $(this).addClass('active');
+        performSearch(1);
+    });
+
     function selectedOrderby() {
         var selectedOption = $('.nice-select.orderby .option.selected');
         $('.nice-select.orderby .current').text(selectedOption.text()).data('value', selectedOption.data('value'));
     }
 
+    // Not needed for now.
     function bindPaginationListeners() {
         $('.woocommerce-pagination .page-numbers').on('click', function(e) {
             e.preventDefault();
@@ -247,7 +274,15 @@ jQuery(document).ready(function($) {
         });
     }
 
-    //performSearch(1);
+    // Toggle auction options based on the state of the switch
+    function toggleAuctionOptions() {
+        var auctionsOnly = $('#auctionsonly').hasClass('switch-on');
+        if (auctionsOnly) {
+            $('.nice-select.orderby ul li[data-value="auction_started"], .nice-select.orderby ul li[data-value="auction_end"]').css('display', 'block');
+        } else {
+            $('.nice-select.orderby ul li[data-value="auction_started"], .nice-select.orderby ul li[data-value="auction_end"]').css('display', 'none');
+        }
+    }
 
     // Load saved filters from URL
     function loadSavedFilters() {
@@ -271,10 +306,6 @@ jQuery(document).ready(function($) {
             $('.nice-select.orderby .option[data-value="' + savedOrderBy + '"]').addClass('selected').siblings().removeClass('selected');
             $('.nice-select.orderby .current').text($('.nice-select.orderby .option.selected').text()).data('value', savedOrderBy);
         }
-
-        /*if (savedPaged) {
-            $('.woocommerce-pagination .page-numbers[data-page="' + savedPaged + '"]').addClass('current').siblings().removeClass('current');
-        }*/
 
         // Load saved attribute filters
         $('.product-attribute-filter').each(function() {
@@ -307,9 +338,9 @@ jQuery(document).ready(function($) {
             performSearch(1);    
         }*/
 
-        if(savedPaged) {
+        if (savedPaged) {
             performSearch(savedPaged);
-        } else{
+        } else {
             performSearch(1);
         }
     }

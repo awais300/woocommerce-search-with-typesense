@@ -81,6 +81,60 @@ li.checked label {
     margin: 0 0 0 5px !important;
 }
 
+.nice-select.orderby ul li[data-value="auction_started"],
+.nice-select.orderby ul li[data-value="auction_end"] {
+    display: none;
+}
+
+
+#wcfmmp-store .woocommerce-pagination.ajax ul li {
+    padding: 0;
+}
+
+body.wcfm-store-page .woocommerce-no-products-found {
+    margin-top: 30px;
+}
+
+body.wcfm-store-page .woocommerce ul.products .products-wrapper {
+    padding-bottom: 20px;
+}
+
+body.wcfm-store-page #mbf_products {
+    width: 100%;
+}
+
+.woocommerce .woocommerce-ordering {
+    margin: 0 0 1em !important;
+}
+
+.cd-tab-filter-wrapper-store {
+    display: inline-block;
+    float: right;
+    margin-bottom: 10px;
+    width: 20%;
+    margin-top: -35px;
+}
+
+body.archive .woocommerce-Price-amount.amount bdi,
+body.archive .woocommerce-Price-amount.amount .woocommerce-Price-currencySymbol {
+    font-weight: 700 !important;
+    font-size: 14px !important;
+    color: #242424 !important;
+    font-family: Poppins, Arial, Helvetica, sans-serif !important;
+}
+body.archive .product-type-auction .woocommerce-Price-amount.amount bdi,
+body.archive ..product-type-auction .woocommerce-Price-amount.amount .woocommerce-Price-currencySymbol {
+    font-weight: 700 !important;
+    font-size: 14px !important;
+    color: #242424 !important;
+    font-family: Poppins, Arial, Helvetica, sans-serif !important;
+}
+
+div.auction-meta-details .woocommerce-Price-amount.amount {
+    display: inline-block !important;
+}
+
+
 #loading-overlay {
     position: fixed;
     top: 0;
@@ -127,6 +181,7 @@ nav.gridlist-toggle {
     display: none !important;
 }
 
+
 @media (min-width: 1024px) {
     #mbf_products {
         width: 80%;
@@ -136,6 +191,10 @@ nav.gridlist-toggle {
     #ts_products {
         width: 80%;
         margin-left: auto;
+    }
+
+    body.wcfm-store-page #mbf_products {
+        width: 100%;
     }
 }
 
