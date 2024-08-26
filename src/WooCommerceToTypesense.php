@@ -178,6 +178,104 @@ class WooCommerceToTypesense extends Singleton
         }
     }
 
+
+    public function synchronize_products_ajax($batch_size = 10, $reindex = false)
+    {
+        if ($this->collection_exists($this->collection_name) === false) {
+            $this->log_info(
+                __("Skipping adding documents to collection as collection does not exist.", 'woocommerce-search-with-typesense')
+            );
+            return ['status' => 'error', 'message' => 'Collection does not exist'];
+        }
+
+        $result = $this->fetch_products_generator_ajax($batch_size);
+
+        if ($result['status'] === 'completed') {
+            return ['status' => 'completed', 'message' => 'All products processed'];
+        }
+
+        $processed_ids = array();
+        foreach ($result['products'] as $product) {
+            try {
+                $prepared_product = $this->prepare_product($product);
+                $this->add_or_update_product($prepared_product, $reindex);
+                $processed_ids[] = $product->get_id();
+            } catch (Exception $e) {
+                $this->log_error(
+                    sprintf(
+                        __("Error processing product ID %d: %s", 'woocommerce-search-with-typesense'),
+                        $product->get_id(),
+                        $e->getMessage()
+                    )
+                );
+            }
+        }
+
+
+        return [
+            'status' => 'in_progress',
+            'message' => 'Current batch processed successfully',
+            'processed_products' => $processed_ids,
+            'batch_count' => count($processed_ids),
+        ];
+    }
+
+    public function fetch_products_generator_ajax($batch_size = 10)
+    {
+        global $wpdb;
+        $post_type = 'product';
+        $post_status = 'publish';
+        $key = $this->collection_name . PostMetaManager::COLLECTION_KEY;
+
+        $query = $wpdb->prepare(
+            "SELECT p.ID, p.post_title
+        FROM {$wpdb->posts} p
+        LEFT JOIN {$wpdb->postmeta} pm ON p.ID = pm.post_id AND pm.meta_key = %s
+        WHERE p.post_type = %s
+        AND p.post_status = %s
+        AND pm.meta_value IS NULL
+        ORDER BY p.ID ASC
+        LIMIT %d",
+            $key,
+            $post_type,
+            $post_status,
+            $batch_size
+        );
+
+        $results = $wpdb->get_results($query);
+        $this->log_info(sprintf("Fetching batch with %d products", count($results)));
+
+        if (empty($results)) {
+            OptionsManager::indexing_completed();
+            $this->log_info(
+                sprintf(
+                    __("Yielding completed at: %s", 'woocommerce-search-with-typesense'),
+                    date('l, F j Y - H:i:s', time())
+                )
+            );
+            return ['status' => 'completed'];
+        }
+
+        $processed_products = [];
+        foreach ($results as $result) {
+            $product = wc_get_product($result->ID);
+            if ($product) {
+                $this->log_info(
+                    sprintf(
+                        __("Processing Product: %d", 'woocommerce-search-with-typesense'),
+                        $product->get_id()
+                    )
+                );
+                $processed_products[] = $product;
+            }
+        }
+
+        return [
+            'status' => 'in_progress',
+            'products' => $processed_products
+        ];
+    }
+
     /**
      * Fetch WooCommerce products in batches using a generator with direct MySQL queries.
      *
@@ -191,7 +289,7 @@ class WooCommerceToTypesense extends Singleton
         $offset = 0;
         $post_type = 'product';
         $post_status = 'publish';
-        $key = $wpdb->esc_like($this->collection_name . PostMetaManager::COLLECTION_KEY);
+        $key = $this->collection_name . PostMetaManager::COLLECTION_KEY;
 
         while (true) {
             $query = $wpdb->prepare(
@@ -361,7 +459,7 @@ class WooCommerceToTypesense extends Singleton
     public function prepare_product($product)
     {
         date_default_timezone_set('UTC');
-        
+
         // Get product categories
         $categories = wp_get_post_terms($product->get_id(), 'product_cat', array('fields' => 'slugs'));
 

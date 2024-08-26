@@ -132,22 +132,11 @@ class Search
 
 
             $results = $wc_to_typesense->typesense->collections[$wc_to_typesense->collection_name]->documents->search($search_parameters);
-            /*echo $scoped_key = $typesense_init->perform_search_with_scoped_api_key(15000);
-            exit;
-            if ($scoped_key) {
-                $results = $wc_to_typesense->typesense->collections[$wc_to_typesense->collection_name]->documents->search($search_parameters, ['x-typesense-api-key' => $scoped_key]);
-            } else {
-                exit('something wrong');
-            }*/
-
-            //$results = $wc_to_typesense->typesense->collections[$wc_to_typesense->collection_name]->documents->search($search_parameters);
             $posts = $this->convert_typesense_to_wp_posts($results);
-
-
-            //dd($results);
 
             ob_start();
 
+            // Vendor
             if ($this->seller_search == true) {
                 echo '<div class="product_area">';
                 echo '<div id="products-wrapper" class="products-wrapper cd-gallery">';
@@ -163,10 +152,6 @@ class Search
                     'per_page'     => self::PER_PAGE,
                     'current_page' => $paged
                 ]);
-
-                /*global $wp_query;
-                $wp_query->set('post_type', 'product');
-                $wp_query->set('wc_query', 'product_query');*/
 
                 do_action('woocommerce_before_shop_loop');
 
@@ -281,63 +266,10 @@ class Search
         }
     }
 
-    public function generate_pagination($total_products, $per_page, $current_page)
-    {
-        $total_pages = ceil($total_products / $per_page);
-        $base_url = get_pagenum_link(1); // Get the base URL without pagination
-        $base_url = preg_replace('/\/page\/1\/$/', '/', $base_url); // Remove /page/1/ if it exists
-
-        // Parse the base URL to get the query string
-        $parsed_url = wp_parse_url($base_url);
-        $query_args = array();
-
-        // If there's a query string, parse it into an array
-        if (isset($parsed_url['query'])) {
-            parse_str($parsed_url['query'], $query_args);
-        }
-
-        // Add or update the paged query parameter
-        $query_args['cur_page'] = '%#%';
-
-        // Rebuild the URL with the updated query arguments
-        $base_url = $parsed_url['scheme'] . '://' . $parsed_url['host'] . $parsed_url['path'];
-        $base_url = add_query_arg($query_args, $base_url);
-
-        $pagination_args = array(
-            'base' => $base_url,
-            'format' => '',
-            'current' => max(1, $current_page),
-            'total' => $total_pages,
-            'prev_text' => __('←'),
-            'next_text' => __('→'),
-            'type' => 'array',
-            'mid_size' => 2,
-            'end_size' => 1,
-            'add_args' => array()
-        );
-
-        $pagination_links = paginate_links($pagination_args);
-
-        if ($pagination_links) {
-            echo '<nav class="woocommerce-pagination">';
-            echo '<ul class="page-numbers">';
-            foreach ($pagination_links as $link) {
-                // Add data-page attribute to pagination links
-                $link = preg_replace('/<a([^>]*)>(.*?)<\/a>/', '<a$1 data-page="$2">$2</a>', $link);
-                $link = preg_replace('/<span([^>]*)>(.*?)<\/span>/', '<span$1 data-page="$2">$2</span>', $link);
-                echo '<li>' . $link . '</li>';
-            }
-            echo '</ul>';
-            echo '</nav>';
-        }
-    }
-
     public function search_ts()
     {
         $paged = isset($_GET['cur_page']) ? intval($_GET['cur_page']) : 1;
         $search_query = get_search_query();
-
-        //var_dump($search_query);
 
         $category = isset($_GET['product_cat']) ? sanitize_text_field($_GET['product_cat']) : '';
 
@@ -367,17 +299,6 @@ class Search
         $results = $wc_to_typesense->typesense->collections[$wc_to_typesense->collection_name]->documents->search($search_parameters);
 
         return $results;
-    }
-
-    public function is_frontend_ajax_request()
-    {
-        if (wp_doing_ajax()) {
-            $referer = wp_get_referer();
-            if ($referer && !strpos($referer, 'wp-admin')) {
-                return true;
-            }
-        }
-        return false;
     }
 
 

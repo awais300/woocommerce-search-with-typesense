@@ -102,40 +102,10 @@ class AjaxIndexing extends Singleton
             }
         }
 
-        if ($this->wc_to_typesense->collection_exists($this->collection_name) === false) {
-            $this->wc_to_typesense->create_collection();
-        }
-
-        $total_products = $this->get_total_products($force_reindex);
-
-        $batch_size = 10; // Index 10 products at a time
-        $indexed_products = $this->ajax_synchronize_products($batch_size, $force_reindex);
-
-        $indexed_count = OptionsManager::get_indexed_product_count();
-        $indexed_count = $indexed_count + count($indexed_products);
-        OptionsManager::set_indexed_product_count($indexed_count);
-
-
-        // Check if indexed proudcts count is greater than total product count.
-        $completed = $indexed_count >= $total_products;
-        if ($completed) {
-            OptionsManager::set_indexed_product_count(0); // Reset the count for next time
-            OptionsManager::indexing_completed();
-        }
-
-        wp_send_json(array(
-            'completed' => $completed,
-            'message' => $completed ?
-                __('Indexing completed. All products are up to date.', 'woocommerce-search-with-typesense') :
-                sprintf(
-                    __('%d out of %d products processed', 'woocommerce-search-with-typesense'),
-                    $indexed_count,
-                    $total_products
-                ),
-            'indexed_products' => $indexed_products,
-            'indexed_count' => $indexed_count,
-            'total_products' => $total_products
-        ));
+        $this->wc_to_typesense->create_collection();
+        $response = $this->wc_to_typesense->synchronize_products_ajax(10, $force_reindex);
+        $response = array_merge($response, ['total_count' => $this->typesense_init->get_non_index_products_count($this->collection_name)]);
+        wp_send_json($response);
     }
 
     /**

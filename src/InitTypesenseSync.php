@@ -150,7 +150,7 @@ class InitTypesenseSync extends Singleton
     public function get_typesense_config()
     {
         return [
-            'host' => get_option(TypesenseSettings::HOST, '192.168.10.20'),
+            'host' => get_option(TypesenseSettings::HOST, 'localhost'),
             'port' => get_option(TypesenseSettings::PORT, '8108'),
             'protocol' => get_option(TypesenseSettings::PROTOCOL, 'http'),
             'api_key' => get_option(TypesenseSettings::API_KEY, 'xyz')
@@ -185,7 +185,7 @@ class InitTypesenseSync extends Singleton
                 'connection_timeout_seconds' => 2
             ]);
 
-           /* $this->typesense_client = $client;
+            /* $this->typesense_client = $client;
 
             $this->delete_collection($this->get_collection_name());
             exit;*/
@@ -263,7 +263,13 @@ class InitTypesenseSync extends Singleton
             $collection_name = $this->get_collection_name();
         }
 
-        \WP_CLI::success('Typesense collection name: ' . $collection_name  . '. Records will be indexed againt this collction name');
+        $this->log_info(
+            sprintf(
+                __("Typesense collection name: %s Records will be indexed againt collction name: %s"),
+                $collection_name,
+                $collection_name
+            )
+        );
 
         global $wpdb;
         $meta_key = $collection_name . PostMetaManager::COLLECTION_KEY;
