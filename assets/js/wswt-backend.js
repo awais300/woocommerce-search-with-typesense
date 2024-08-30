@@ -39,6 +39,7 @@ jQuery(document).ready(function($) {
     });
 
     var PROCCESSED_COUNT = 0;
+
     function indexProducts(forceReindex) {
         var action = forceReindex ? 'force_reindex_products' : 'index_products';
         var nonce = forceReindex ? TS_LOCAL.force_reindex_products_nonce : TS_LOCAL.index_products_nonce;
@@ -53,7 +54,7 @@ jQuery(document).ready(function($) {
             success: function(response) {
                 if (response.status === 'in_progress') {
                     //PROCCESSED_COUNT = PROCCESSED_COUNT + response.batch_count;
-                    var processed_message  = response.total_count + ' Left to Index';
+                    var processed_message = response.total_count + ' Left to Index';
 
                     $('#indexing-progress').html(processed_message).show();
                     // If not completed, call the function again

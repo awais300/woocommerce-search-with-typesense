@@ -31,11 +31,16 @@ jQuery(document).ready(function($) {
         var paged = requestedPage || parseInt($('.woocommerce-pagination .current').data('page')) || 1;
 
 
-
         console.log(orderBy);
 
         // Get current URL parameters
         var urlParams = new URLSearchParams(window.location.search);
+
+        if(!orderBy) {
+            orderBy =  urlParams.get('orderby');
+        }
+
+        console.log(orderBy);
 
         // Remove rel_search parameter
         urlParams.delete('rel_search');

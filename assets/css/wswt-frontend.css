@@ -134,6 +134,18 @@ div.auction-meta-details .woocommerce-Price-amount.amount {
     display: inline-block !important;
 }
 
+body.archive .auction-meta-details{
+    text-align: center;
+}
+
+body.archive .archive-product-title a{
+    display: -webkit-box !important;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 5;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 
 #loading-overlay {
     position: fixed;
